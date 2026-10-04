@@ -102,6 +102,7 @@ main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:col
       <option value="a4">Khổ A4</option>
       <option value="fit">Theo kích thước ảnh</option>
     </select>
+    <button class="pri" id="btnShareAll" hidden>Gửi tất cả PDF (Zalo…)</button>
     <button class="pri" id="btnZip">Tải tất cả (1 file ZIP)</button>
     <button id="btnAllPdf">Tải từng PDF</button>
     <button class="danger" id="btnClear">Xóa hết</button>
@@ -182,9 +183,9 @@ function toast(msg, ms = 2500){
 }
 function hideToast(){ $('toast').classList.remove('show'); }
 // hộp hỏi xác nhận tự làm (confirm() không chạy trong khung xem của Claude)
-function ask(msg){
+function ask(msg, yesLabel = 'Đồng ý'){
   return new Promise(res => {
-    $('askText').textContent = msg; $('askModal').classList.add('open');
+    $('askText').textContent = msg; $('askYes').textContent = yesLabel; $('askModal').classList.add('open');
     const done = v => { $('askModal').classList.remove('open'); $('askYes').onclick = $('askNo').onclick = null; res(v); };
     $('askYes').onclick = () => done(true); $('askNo').onclick = () => done(false);
   });
@@ -192,6 +193,23 @@ function ask(msg){
 // khi mở qua link Claude thì dùng các khả năng của khung xem, mở file trực tiếp thì dùng cách thường
 const inClaude = !!window.claude;
 const useCap = name => inClaude ? window.claude.use(name).catch(() => null) : Promise.resolve(null);
+// gửi file thẳng sang Zalo/ứng dụng khác qua bảng chia sẻ của điện thoại (cần mở trang qua https)
+const canShareFiles = !inClaude && !!navigator.canShare && (() => {
+  try { return navigator.canShare({ files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] }); } catch { return false; }
+})();
+async function shareFiles(files){
+  const go = () => navigator.share({ files });
+  try { await go(); }
+  catch (e) {
+    if (e.name === 'AbortError') return;          // người dùng đóng bảng chia sẻ
+    // tạo file lâu quá thì trình duyệt không cho mở bảng chia sẻ nữa: hỏi lại để có lượt bấm mới
+    if (e.name !== 'NotAllowedError') throw new Error('Không gửi được: ' + (e.message || e.name));
+    const names = files.length > 1 ? `${files.length} file` : files[0].name;
+    if (!await ask(`Đã tạo xong ${names}. Bấm "Gửi" rồi chọn Zalo.`, 'Gửi')) return;
+    try { await go(); } catch (e2) { if (e2.name !== 'AbortError') throw new Error('Không gửi được: ' + (e2.message || e2.name)); }
+  }
+}
+const pdfFile = async d => new File([await buildPdf(d.pages)], fileBase(d) + '.pdf', { type: 'application/pdf' });
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const nextFrame = () => new Promise(r => setTimeout(r, 30));
 const docLabel = (d) => d.name.trim() || `Tài liệu ${docs.indexOf(d) + 1}`;
@@ -705,7 +723,9 @@ function render(){
         <span class="meta">${d.pages.length} trang</span>
         <button class="small danger">Xóa tài liệu</button></div>
       <div class="grid"></div>
-      <div class="doc-ft" ${d.pages.length ? '' : 'hidden'}><button class="small pri">Tải PDF</button><button class="small">Tải ảnh JPG</button><button class="small">Đọc chữ (OCR)</button></div>`;
+      <div class="doc-ft" ${d.pages.length ? '' : 'hidden'}>
+        ${canShareFiles ? '<button class="small pri" data-a="spdf">Gửi PDF (Zalo…)</button><button class="small" data-a="sjpg">Gửi ảnh</button>' : ''}
+        <button class="small ${canShareFiles ? '' : 'pri'}" data-a="pdf">Tải PDF</button><button class="small" data-a="jpg">Tải ảnh JPG</button><button class="small" data-a="ocr">Đọc chữ (OCR)</button></div>`;
     const name = el.querySelector('input'); name.id = 'docname-' + d.id; name.value = d.name;
     name.oninput = () => { d.name = name.value; persist(); };
     el.querySelector('.doc-hd button').onclick = async () => {
@@ -713,7 +733,13 @@ function render(){
       d.pages.forEach(p => URL.revokeObjectURL(p.thumbURL));
       docs.splice(docs.indexOf(d), 1); if (!docs.length) newDoc(); render();
     };
-    const [bPdf, bJpg, bOcr] = el.querySelectorAll('.doc-ft button');
+    const fb = a => el.querySelector(`.doc-ft [data-a="${a}"]`);
+    const bPdf = fb('pdf'), bJpg = fb('jpg'), bOcr = fb('ocr');
+    if (canShareFiles){
+      fb('spdf').onclick = e => withBusy(e.target, 'Đang tạo PDF…', async () => shareFiles([await pdfFile(d)]));
+      fb('sjpg').onclick = e => withBusy(e.target, 'Đang chuẩn bị…', async () =>
+        shareFiles(d.pages.map((p, i) => new File([p.outBlob], `${fileBase(d)}-${i + 1}.jpg`, { type: 'image/jpeg' }))));
+    }
     bPdf.onclick = e => withBusy(e.target, 'Đang tạo PDF…', async () => await download(await buildPdf(d.pages), fileBase(d) + '.pdf'));
     bJpg.onclick = e => withBusy(e.target, 'Đang tải…', async () => {
       for (let i = 0; i < d.pages.length; i++){
@@ -934,6 +960,22 @@ async function withBusy(btn, label, fn){
 }
 function filledDocs(){ return docs.filter(d => d.pages.length); }
 
+if (canShareFiles){
+  $('btnShareAll').hidden = false; $('btnZip').classList.remove('pri');
+  $('btnShareAll').onclick = e => withBusy(e.target, 'Đang tạo PDF…', async () => {
+    const list = filledDocs(), files = [], used = new Set();
+    for (let i = 0; i < list.length; i++){
+      toast(`Đang tạo PDF ${i + 1}/${list.length}: ${docLabel(list[i])}`, 0);
+      let f = await pdfFile(list[i]), n = 2;
+      while (used.has(f.name)) f = new File([f], `${fileBase(list[i])} (${n++}).pdf`, { type: 'application/pdf' });
+      used.add(f.name); files.push(f);
+    }
+    hideToast();
+    await shareFiles(files);
+  });
+  // tải sẵn thư viện tạo PDF để bấm Gửi là ra file nhanh
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').catch(() => {});
+}
 $('btnZip').onclick = e => withBusy(e.target, 'Đang nén…', async () => {
   if (!window.JSZip) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
   const zip = new JSZip(), used = new Set(), list = filledDocs();
