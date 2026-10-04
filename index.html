@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scan tài liệu</title>
+<style>
+:root{--bg:#f3f4f7;--card:#fff;--soft:#fafbfc;--thumb:#e9ebef;--text:#1d2330;--muted:#6b7280;--line:#e2e5ea;--pri:#1565c0;--pri-d:#0d47a1;--pri-soft:#e8f0fb;--danger:#c62828;--dark:#111418;--shade:rgba(0,0,0,.45)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#1d2127;--soft:#191c21;--thumb:#262b33;--text:#e8eaee;--muted:#9aa1ad;--line:#323843;--pri:#3d8bdb;--pri-d:#2f78c4;--pri-soft:#1c2a3b;--danger:#ef6b6b;--shade:rgba(0,0,0,.6);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171c;--card:#1d2127;--soft:#191c21;--thumb:#262b33;--text:#e8eaee;--muted:#9aa1ad;--line:#323843;--pri:#3d8bdb;--pri-d:#2f78c4;--pri-soft:#1c2a3b;--danger:#ef6b6b;--shade:rgba(0,0,0,.6);color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+button,select,input{font:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:9px 14px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+button.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+button.pri:hover{background:var(--pri-d)}
+button.danger{color:var(--danger)}
+button.small{padding:5px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:default}
+input[type=text],select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text)}
+input[type=file]{display:none}
+header{background:var(--pri);color:#fff;padding:calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;display:flex;align-items:center;gap:12px}
+header h1{font-size:18px;margin:0;font-weight:600}
+header .count{margin-left:auto;font-size:13px;opacity:.9}
+main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.case{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.case label{font-weight:600}
+.case input{flex:1 1 220px;min-width:0}
+.doc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px}
+.doc-hd{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.doc-hd .num{width:28px;height:28px;border-radius:50%;background:var(--pri-soft);color:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none}
+.doc-hd input{flex:1 1 200px;min-width:0;font-weight:600}
+.doc-hd .meta{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
+.page{border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;background:var(--soft)}
+.page .thumb{aspect-ratio:3/4;max-width:100%;background:var(--thumb);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:6px}
+.page .thumb img{max-width:100%;max-height:100%;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.page .bar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:5px}
+.page .bar span{font-size:13px;color:var(--muted);margin-right:auto;padding-left:3px;font-variant-numeric:tabular-nums}
+.page .bar button{padding:3px 8px;font-size:13px}
+.page .bar select{width:100%;padding:4px 6px;font-size:13px}
+.add-tile{aspect-ratio:3/4;max-width:100%;border:2px dashed var(--line);background:transparent;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--pri);font-weight:600}
+.add-tile:hover{border-color:var(--pri);background:var(--pri-soft)}
+.add-tile .ic{font-size:26px}
+.add-pair{display:grid;grid-template-rows:1fr 1fr;gap:10px;aspect-ratio:3/4;max-width:100%}
+.add-pair .add-tile{aspect-ratio:auto}
+.doc-ft{display:flex;flex-wrap:wrap;gap:8px}
+.add-doc{border:2px dashed var(--line);background:transparent;color:var(--pri);font-weight:600;padding:14px;border-radius:12px}
+.add-doc:hover{border-color:var(--pri);background:var(--pri-soft)}
+.export{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.export b{margin-right:auto}
+.hint{color:var(--muted);font-size:13px;line-height:1.5}
+
+/* Trình chỉnh sửa */
+.editor{position:fixed;inset:0;background:var(--dark);color:#fff;display:none;flex-direction:column;z-index:10}
+.editor.open{display:flex}
+.editor .top{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;border-bottom:1px solid #2a2f37}
+.editor .top b{margin-right:auto;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.editor .stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:14px}
+.editor svg{width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.editor .preview{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
+.editor .tools{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));border-top:1px solid #2a2f37}
+.editor button{background:#2a2f37;border-color:#3a404a;color:#fff}
+.editor button.pri{background:#1e7ae0;border-color:#1e7ae0}
+.editor button.on{background:#fff;color:#111;border-color:#fff}
+.loupe{position:absolute;top:10px;left:10px;width:130px;height:130px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.6);pointer-events:none;background:#000}
+.loupe.right{left:auto;right:10px}
+
+/* Hộp thoại */
+.modal{position:fixed;inset:0;background:var(--shade);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal.open{display:flex}
+.modal .box{background:var(--card);color:var(--text);border-radius:12px;width:min(760px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .box .hd{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.modal .box .hd b{margin-right:auto}
+.modal textarea{flex:1;min-height:50vh;border:0;padding:14px 16px;font:14px/1.5 ui-monospace,Consolas,monospace;resize:none;outline:none;background:var(--card);color:var(--text)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;z-index:30;display:none;max-width:90vw;text-align:center}
+.toast.show{display:block}
+.drop-on main{outline:3px dashed var(--pri);outline-offset:-6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Scan tài liệu</h1>
+  <span class="count" id="count"></span>
+</header>
+
+<main>
+  <div class="case">
+    <label for="caseName">Tên hồ sơ</label>
+    <input type="text" id="caseName" placeholder="VD: biển số xe 30A-123.45 (dùng để đặt tên file)">
+  </div>
+
+  <div id="docs"></div>
+  <button class="add-doc" id="btnAddDoc">+ Thêm tài liệu khác</button>
+
+  <div class="export" id="export">
+    <b id="exportInfo"></b>
+    <select id="paper" aria-label="Khổ giấy">
+      <option value="a4">Khổ A4</option>
+      <option value="fit">Theo kích thước ảnh</option>
+    </select>
+    <button class="pri" id="btnZip">Tải tất cả (1 file ZIP)</button>
+    <button id="btnAllPdf">Tải từng PDF</button>
+    <button class="danger" id="btnClear">Xóa hết</button>
+  </div>
+  <div class="hint">Mỗi tài liệu được xuất thành một file PDF riêng, tên file là "Tên hồ sơ - Tên tài liệu". Bấm vào ảnh trang để cắt lại hoặc đổi kiểu ảnh. Ảnh được xử lý ngay trên máy và lưu tạm trong trình duyệt, tải lại trang vẫn còn.</div>
+</main>
+
+<datalist id="docNames">
+  <option value="Thông báo tổn thất"><option value="Biên bản giám định"><option value="Biên bản xác minh">
+  <option value="Giấy chứng nhận bảo hiểm"><option value="Đăng ký xe"><option value="Giấy phép lái xe">
+  <option value="Giấy chứng nhận kiểm định"><option value="Báo giá sửa chữa"><option value="Hóa đơn sửa chữa">
+  <option value="Biên bản nghiệm thu"><option value="Giấy đề nghị bồi thường"><option value="Căn cước công dân">
+</datalist>
+
+<input type="file" id="inCamera" accept="image/*" capture="environment">
+<input type="file" id="inFiles" accept="image/*" multiple>
+
+<div class="editor" id="editor">
+  <div class="top">
+    <b id="edTitle">Cắt trang</b>
+    <button id="edCancel">Hủy</button>
+  </div>
+  <div class="stage" id="edStage"></div>
+  <div class="tools" id="edTools"></div>
+</div>
+
+<div class="modal" id="ocrModal">
+  <div class="box">
+    <div class="hd"><b id="ocrTitle">Kết quả OCR</b><button id="ocrCopy">Sao chép</button><button id="ocrTxt">Tải .txt</button><button id="ocrClose">Đóng</button></div>
+    <textarea id="ocrText" spellcheck="false" aria-label="Chữ nhận dạng được"></textarea>
+  </div>
+</div>
+
+<div class="modal" id="askModal">
+  <div class="box" style="width:min(380px,100%)">
+    <div style="padding:18px 16px" id="askText"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding:0 16px 16px">
+      <button id="askNo">Không</button><button class="pri" id="askYes">Đồng ý</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MAX_SRC = 2600;   // cạnh dài tối đa của ảnh gốc giữ lại
+const MAX_OUT = 2480;   // cạnh dài tối đa của trang sau khi nắn (~300dpi A4)
+const FILTERS = [['enhance','Làm trắng nền'],['gray','Ảnh xám'],['bw','Đen trắng'],['original','Màu gốc']];
+
+const docs = [];        // [{id, name, pages:[{id, srcBlob, outBlob, thumbBlob, thumbURL, corners, filter, outW, outH}]}]
+let nextId = 1;
+let targetDoc = null;   // tài liệu đang nhận ảnh mới
+const $ = id => document.getElementById(id);
+
+/* ---------- tiện ích ---------- */
+function mkCanvas(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function toBlob(c, type = 'image/jpeg', q = 0.9){ return new Promise(r => c.toBlob(r, type, q)); }
+async function blobToCanvas(blob){
+  const img = new Image(); const url = URL.createObjectURL(blob);
+  img.src = url; await img.decode(); URL.revokeObjectURL(url);
+  const c = mkCanvas(img.naturalWidth, img.naturalHeight);
+  c.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0); return c;
+}
+async function fileToCanvas(file){
+  const img = new Image(); const url = URL.createObjectURL(file);
+  img.src = url;
+  try { await img.decode(); } finally { URL.revokeObjectURL(url); }
+  const k = Math.min(1, MAX_SRC / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = mkCanvas(Math.round(img.naturalWidth * k), Math.round(img.naturalHeight * k));
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, c.width, c.height); return c;
+}
+let toastTimer;
+function toast(msg, ms = 2500){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); if (ms) toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+function hideToast(){ $('toast').classList.remove('show'); }
+// hộp hỏi xác nhận tự làm (confirm() không chạy trong khung xem của Claude)
+function ask(msg){
+  return new Promise(res => {
+    $('askText').textContent = msg; $('askModal').classList.add('open');
+    const done = v => { $('askModal').classList.remove('open'); $('askYes').onclick = $('askNo').onclick = null; res(v); };
+    $('askYes').onclick = () => done(true); $('askNo').onclick = () => done(false);
+  });
+}
+// khi mở qua link Claude thì dùng các khả năng của khung xem, mở file trực tiếp thì dùng cách thường
+const inClaude = !!window.claude;
+const useCap = name => inClaude ? window.claude.use(name).catch(() => null) : Promise.resolve(null);
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const nextFrame = () => new Promise(r => setTimeout(r, 30));
+const docLabel = (d) => d.name.trim() || `Tài liệu ${docs.indexOf(d) + 1}`;
+
+/* ---------- lưu tạm trong trình duyệt (IndexedDB) ---------- */
+const store = {
+  db: null,
+  async open(){
+    try {
+      this.db = await new Promise((ok, no) => {
+        const r = indexedDB.open('scan-tai-lieu', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
+      });
+    } catch { this.db = null; }
+  },
+  get(k){
+    return new Promise(ok => {
+      if (!this.db) return ok(undefined);
+      try { const q = this.db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => ok(q.result); q.onerror = () => ok(undefined); }
+      catch { ok(undefined); }
+    });
+  },
+  set(k, v){ if (!this.db) return; try { this.db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch {} }
+};
+let saveTimer;
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => store.set('state', {
+    caseName: $('caseName').value, paper: $('paper').value,
+    docs: docs.map(d => ({ id: d.id, name: d.name, pages: d.pages.map(({ thumbURL, ...p }) => p) }))
+  }), 300);
+}
+
+/* ---------- xử lý ảnh mức xám ---------- */
+function grayOf(src, maxSide){
+  const s = Math.min(1, maxSide / Math.max(src.width, src.height));
+  const w = Math.max(1, Math.round(src.width * s)), h = Math.max(1, Math.round(src.height * s));
+  const c = mkCanvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingQuality = 'high'; ctx.drawImage(src, 0, 0, w, h);
+  const d = ctx.getImageData(0, 0, w, h).data, g = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) g[i] = 0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2];
+  return { g, w, h, s };
+}
+function boxBlur(g, w, h, r){
+  const t = new Float32Array(w * h), o = new Float32Array(w * h), n = 2 * r + 1;
+  for (let y = 0; y < h; y++){
+    const row = y * w; let acc = 0;
+    for (let k = -r; k <= r; k++) acc += g[row + Math.min(w - 1, Math.max(0, k))];
+    for (let x = 0; x < w; x++){ t[row + x] = acc / n; acc += g[row + Math.min(w - 1, x + r + 1)] - g[row + Math.max(0, x - r)]; }
+  }
+  for (let x = 0; x < w; x++){
+    let acc = 0;
+    for (let k = -r; k <= r; k++) acc += t[Math.min(h - 1, Math.max(0, k)) * w + x];
+    for (let y = 0; y < h; y++){ o[y*w + x] = acc / n; acc += t[Math.min(h - 1, y + r + 1) * w + x] - t[Math.max(0, y - r) * w + x]; }
+  }
+  return o;
+}
+function sobel(g, w, h){
+  const m = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++){
+    const i = y * w + x;
+    const gx = (g[i-w+1] + 2*g[i+1] + g[i+w+1]) - (g[i-w-1] + 2*g[i-1] + g[i+w-1]);
+    const gy = (g[i+w-1] + 2*g[i+w] + g[i+w+1]) - (g[i-w-1] + 2*g[i-w] + g[i-w+1]);
+    m[i] = Math.hypot(gx, gy);
+  }
+  return m;
+}
+function otsu(arr, maxVal){
+  const B = 256, hist = new Array(B).fill(0), k = (B - 1) / maxVal;
+  for (let i = 0; i < arr.length; i++) hist[Math.max(0, Math.min(B - 1, (arr[i] * k) | 0))]++;
+  let sumAll = 0; for (let i = 0; i < B; i++) sumAll += i * hist[i];
+  let sumB = 0, wB = 0, best = 0, thr = B / 2, n = arr.length;
+  for (let t = 0; t < B; t++){
+    wB += hist[t]; if (!wB) continue; const wF = n - wB; if (!wF) break;
+    sumB += t * hist[t];
+    const v = wB * wF * (sumB / wB - (sumAll - sumB) / wF) ** 2;
+    if (v > best){ best = v; thr = t; }
+  }
+  return thr / k;
+}
+function percentile(arr, p){
+  const s = Float32Array.from(arr.filter((_, i) => i % 3 === 0)).sort();
+  return s[Math.min(s.length - 1, Math.floor(s.length * p))];
+}
+
+/* ---------- tự nhận diện mép giấy ---------- */
+function defaultCorners(W, H){
+  const mx = W * 0.06, my = H * 0.06;
+  return [[mx, my], [W - mx, my], [W - mx, H - my], [mx, H - my]];
+}
+function polyArea(p){ let a = 0; for (let i = 0; i < p.length; i++){ const [x1,y1] = p[i], [x2,y2] = p[(i+1)%p.length]; a += x1*y2 - x2*y1; } return Math.abs(a) / 2; }
+// vùng liên thông lớn nhất của mặt nạ, trả về các điểm biên trái/phải từng hàng
+function largestComponent(mask, w, h){
+  const n = w * h, lab = new Int32Array(n), stack = new Int32Array(n);
+  let best = 0, bestArea = 0, cur = 0;
+  for (let i = 0; i < n; i++){
+    if (lab[i] || !mask[i]) continue;
+    cur++; let sp = 0, area = 0; stack[sp++] = i; lab[i] = cur;
+    while (sp){
+      const p = stack[--sp]; area++;
+      const x = p % w;
+      if (x > 0 && !lab[p-1] && mask[p-1]){ lab[p-1] = cur; stack[sp++] = p - 1; }
+      if (x < w - 1 && !lab[p+1] && mask[p+1]){ lab[p+1] = cur; stack[sp++] = p + 1; }
+      if (p >= w && !lab[p-w] && mask[p-w]){ lab[p-w] = cur; stack[sp++] = p - w; }
+      if (p < n - w && !lab[p+w] && mask[p+w]){ lab[p+w] = cur; stack[sp++] = p + w; }
+    }
+    if (area > bestArea){ bestArea = area; best = cur; }
+  }
+  if (!best) return null;
+  const pts = [];
+  for (let y = 0; y < h; y++){
+    let mn = -1, mx = -1;
+    for (let x = 0; x < w; x++) if (lab[y*w + x] === best){ if (mn < 0) mn = x; mx = x; }
+    if (mn >= 0){ pts.push([mn, y + 0.5]); pts.push([mx + 1, y + 0.5]); }
+  }
+  return { area: bestArea, pts };
+}
+function convexHull(P){
+  P = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0]-o[0]) * (b[1]-o[1]) - (a[1]-o[1]) * (b[0]-o[0]);
+  const lo = [], up = [];
+  for (const p of P){ while (lo.length >= 2 && cr(lo[lo.length-2], lo[lo.length-1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = P.length - 1; i >= 0; i--){ const p = P[i]; while (up.length >= 2 && cr(up[up.length-2], up[up.length-1], p) <= 0) up.pop(); up.push(p); }
+  up.pop(); lo.pop(); return lo.concat(up);
+}
+// bớt đỉnh bao lồi: bỏ dần đỉnh "phẳng" nhất, giữ lại các góc thật
+function simplifyHull(H, maxN){
+  H = H.slice();
+  const tri = (a, b, c) => Math.abs((b[0]-a[0]) * (c[1]-a[1]) - (c[0]-a[0]) * (b[1]-a[1])) / 2;
+  while (H.length > maxN){
+    let mi = 0, mv = Infinity;
+    for (let i = 0; i < H.length; i++){ const v = tri(H[(i - 1 + H.length) % H.length], H[i], H[(i + 1) % H.length]); if (v < mv){ mv = v; mi = i; } }
+    H.splice(mi, 1);
+  }
+  return H;
+}
+// tứ giác diện tích lớn nhất nội tiếp bao lồi = 4 góc giấy
+function maxAreaQuad(H){
+  const n = H.length; if (n < 4) return null;
+  const tri = (a, b, c) => Math.abs((b[0]-a[0]) * (c[1]-a[1]) - (c[0]-a[0]) * (b[1]-a[1])) / 2;
+  let best = -1, bq = null;
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) for (let c = b + 1; c < n; c++){
+    const t1 = tri(H[a], H[b], H[c]);
+    for (let d = c + 1; d < n; d++){
+      const v = t1 + tri(H[a], H[c], H[d]);
+      if (v > best){ best = v; bq = [H[a], H[b], H[c], H[d]]; }
+    }
+  }
+  return bq;
+}
+// sắp xếp 4 điểm theo thứ tự: trên-trái, trên-phải, dưới-phải, dưới-trái
+function orderQuad(q){
+  const cx = q.reduce((s, p) => s + p[0], 0) / 4, cy = q.reduce((s, p) => s + p[1], 0) / 4;
+  const s = q.slice().sort((a, b) => Math.atan2(a[1]-cy, a[0]-cx) - Math.atan2(b[1]-cy, b[0]-cx));
+  let k = 0; s.forEach((p, i) => { if (p[0] + p[1] < s[k][0] + s[k][1]) k = i; });
+  return s.slice(k).concat(s.slice(0, k));
+}
+function isConvex(q){
+  let sign = 0;
+  for (let i = 0; i < 4; i++){
+    const a = q[i], b = q[(i+1)%4], c = q[(i+2)%4];
+    const cr = (b[0]-a[0]) * (c[1]-b[1]) - (b[1]-a[1]) * (c[0]-b[0]);
+    if (Math.abs(cr) < 1e-6) return false;
+    if (!sign) sign = Math.sign(cr); else if (Math.sign(cr) !== sign) return false;
+  }
+  return true;
+}
+// điểm trung bình độ mạnh cạnh dọc theo 4 cạnh tứ giác
+function edgeScore(q, mag, w, h){
+  let sum = 0, cnt = 0;
+  for (let i = 0; i < 4; i++){
+    const a = q[i], b = q[(i+1)%4];
+    for (let k = 1; k < 40; k++){
+      const t = k / 40, x = Math.round(a[0] + (b[0]-a[0]) * t), y = Math.round(a[1] + (b[1]-a[1]) * t);
+      let m = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+        const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h && mag[yy*w + xx] > m) m = mag[yy*w + xx];
+      }
+      sum += m; cnt++;
+    }
+  }
+  return sum / cnt;
+}
+// tinh chỉnh: dò mép thật dọc từng cạnh ở độ phân giải cao, khớp đường thẳng, lấy giao điểm làm góc
+function refineQuad(q, G, frac){
+  const { g, w, h } = G, R = Math.max(4, Math.round(Math.hypot(w, h) * frac)), N = 48;
+  const val = (x, y) => {
+    x = Math.max(0, Math.min(w - 1.001, x)); y = Math.max(0, Math.min(h - 1.001, y));
+    const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, i = y0 * w + x0;
+    return (g[i] * (1 - fx) + g[i+1] * fx) * (1 - fy) + (g[i+w] * (1 - fx) + g[i+w+1] * fx) * fy;
+  };
+  const lines = [];
+  for (let s = 0; s < 4; s++){
+    const a = q[s], b = q[(s+1)%4], L = dist(a, b);
+    const u = [(b[0]-a[0]) / L, (b[1]-a[1]) / L], nv = [-u[1], u[0]];
+    // nv hướng vào trong trang. Mỗi điểm mẫu lấy các đỉnh biến thiên sáng (dương: trong sáng hơn ngoài,
+    // âm: ngược lại) làm ứng viên, rồi tìm đường thẳng được nhiều điểm mẫu ủng hộ nhất.
+    const ts = [], cand = [[], []];
+    for (let k = 0; k < N; k++){
+      const t = 0.07 + 0.86 * k / (N - 1), px = a[0] + (b[0]-a[0]) * t, py = a[1] + (b[1]-a[1]) * t;
+      ts.push(t);
+      const prof = [];
+      for (let o = -R; o <= R; o += 0.5)
+        prof.push([o, val(px + nv[0]*(o+1), py + nv[1]*(o+1)) - val(px + nv[0]*(o-1), py + nv[1]*(o-1))]);
+      for (let sg = 0; sg < 2; sg++){
+        const sgn = sg ? -1 : 1, peaks = [];
+        for (let j = 1; j < prof.length - 1; j++){
+          const d = prof[j][1] * sgn;
+          if (d > 6 && d >= prof[j-1][1] * sgn && d >= prof[j+1][1] * sgn){
+            // độ sáng dải ngay phía trong mép (mặt giấy)
+            const o = prof[j][0]; let ib = 0;
+            for (let e = 2; e <= 5; e++) ib += val(px + nv[0]*(o+e), py + nv[1]*(o+e));
+            peaks.push([o, d, ib / 4]);
+          }
+        }
+        peaks.sort((p1, p2) => p2[1] - p1[1]);
+        cand[sg].push(peaks.slice(0, 8));
+      }
+    }
+    const pick = (C) => bestEdgeLine(C, ts);
+    const rp = pick(cand[0]), rn = pick(cand[1]);
+    const r = rn.support > rp.support * 1.5 ? rn : rp;
+    if (r.support >= N * 0.35){
+      const pts = r.pts.map(([t, o]) => [a[0] + (b[0]-a[0]) * t + nv[0]*o, a[1] + (b[1]-a[1]) * t + nv[1]*o]);
+      lines.push(fitLine(pts));
+    } else lines.push({ c: [(a[0]+b[0]) / 2, (a[1]+b[1]) / 2], u });
+  }
+  const out = [];
+  for (let i = 0; i < 4; i++){
+    const p = intersect(lines[(i + 3) % 4], lines[i]);
+    if (!p || dist(p, q[i]) > R * 3) return q;
+    out.push(p);
+  }
+  return isConvex(out) ? out : q;
+}
+// C[k] = các ứng viên [độ lệch o, độ mạnh] tại điểm mẫu k (vị trí ts[k] dọc cạnh).
+// Thử các đường o = o1 + (o2 - o1)·(t - t1)/(t2 - t1) qua từng cặp ứng viên, đếm số điểm mẫu khớp.
+// Trong các đường có độ ủng hộ >= 70% đường tốt nhất, chọn đường ngoài cùng (o nhỏ nhất) = mép giấy.
+function bestEdgeLine(C, ts){
+  const N = C.length, tol = 1.5, lines = [];
+  let seed = 12345; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const filled = [...Array(N).keys()].filter(k => C[k].length);
+  if (filled.length < 2) return { support: 0, pts: [] };
+  for (let it = 0; it < 500; it++){
+    const k1 = filled[(rnd() * filled.length) | 0], k2 = filled[(rnd() * filled.length) | 0];
+    if (Math.abs(k1 - k2) < N / 4) continue;
+    const c1 = C[k1][(rnd() * C[k1].length) | 0], c2 = C[k2][(rnd() * C[k2].length) | 0];
+    const slope = (c2[0] - c1[0]) / (ts[k2] - ts[k1]);
+    const pts = []; let strength = 0, inner = 0;
+    for (let k = 0; k < N; k++){
+      const o = c1[0] + slope * (ts[k] - ts[k1]);
+      let bestD = tol, bc = null;
+      for (const c of C[k]){ const dd = Math.abs(c[0] - o); if (dd <= bestD){ bestD = dd; bc = c; } }
+      if (bc){ pts.push([ts[k], bc[0]]); strength += bc[1]; inner += bc[2]; }
+    }
+    const n = Math.max(1, pts.length);
+    lines.push({ support: pts.length, strength, inner: inner / n, mean: pts.reduce((s, p) => s + p[1], 0) / n, pts });
+  }
+  if (!lines.length) return { support: 0, pts: [] };
+  const top = Math.max(...lines.map(l => l.support));
+  let good = lines.filter(l => l.support >= top * 0.7 && l.support >= N * 0.35);
+  if (!good.length) return { support: top, pts: [] };
+  // phía trong mép giấy phải sáng như mặt giấy; loại các đường vân nền nằm ngoài tờ giấy
+  const maxInner = Math.max(...good.map(l => l.inner));
+  good = good.filter(l => l.inner >= maxInner * 0.85);
+  // gộp các đường gần trùng nhau, rồi lấy đường ngoài cùng
+  good.sort((l1, l2) => l1.mean - l2.mean);
+  const outer = good[0], twins = good.filter(l => Math.abs(l.mean - outer.mean) < 2);
+  return twins.reduce((b, l) => l.support > b.support || (l.support === b.support && l.strength > b.strength) ? l : b, twins[0]);
+}
+function fitLine(pts){
+  let P = pts;
+  for (let it = 0; it < 3; it++){
+    const cx = P.reduce((s, p) => s + p[0], 0) / P.length, cy = P.reduce((s, p) => s + p[1], 0) / P.length;
+    let sxx = 0, sxy = 0, syy = 0;
+    for (const [x, y] of P){ const dx = x - cx, dy = y - cy; sxx += dx*dx; sxy += dx*dy; syy += dy*dy; }
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy), u = [Math.cos(ang), Math.sin(ang)];
+    const line = { c: [cx, cy], u };
+    if (it === 2) return line;
+    const res = pts.map(p => Math.abs((p[0]-cx) * -u[1] + (p[1]-cy) * u[0]));
+    const med = res.slice().sort((a, b) => a - b)[res.length >> 1];
+    const keep = pts.filter((_, i) => res[i] <= Math.max(1.2, med * 2.5));
+    if (keep.length < 6) return line;
+    P = keep;
+  }
+}
+function intersect(l1, l2){
+  const d = l1.u[0] * l2.u[1] - l1.u[1] * l2.u[0];
+  if (Math.abs(d) < 1e-6) return null;
+  const t = ((l2.c[0] - l1.c[0]) * l2.u[1] - (l2.c[1] - l1.c[1]) * l2.u[0]) / d;
+  return [l1.c[0] + l1.u[0] * t, l1.c[1] + l1.u[1] * t];
+}
+function detectCorners(src){
+  const W = src.width, H = src.height;
+  // thu nhỏ ảnh một lần (~1100px) rồi dùng chung cho cả bước dò thô và bước tinh chỉnh
+  const k0 = Math.min(1, 1100 / Math.max(W, H));
+  const mid = mkCanvas(Math.max(1, Math.round(W * k0)), Math.max(1, Math.round(H * k0)));
+  const mctx = mid.getContext('2d', { willReadFrequently: true }); mctx.imageSmoothingQuality = 'high';
+  mctx.drawImage(src, 0, 0, mid.width, mid.height);
+  const S = grayOf(mid, 480), { w, h } = S, n = w * h;
+  const g = boxBlur(boxBlur(S.g, w, h, 1), w, h, 1), mag = sobel(g, w, h);
+  const thr = otsu(g, 255), maxMag = Math.max(1, percentile(mag, 0.995));
+  const masks = [];
+  masks.push(Uint8Array.from(g, v => v > thr ? 1 : 0));   // giấy sáng hơn nền
+  masks.push(Uint8Array.from(g, v => v <= thr ? 1 : 0));  // giấy tối hơn nền
+  // giấy trắng trên nền sáng, ánh sáng không đều: trừ đi độ sáng nền biến thiên chậm rồi mới phân ngưỡng
+  const low = boxBlur(boxBlur(g, w, h, Math.round(Math.max(w, h) / 6)), w, h, Math.round(Math.max(w, h) / 6));
+  const flat = g.map((v, i) => v - low[i] + 128);
+  const tFlat = otsu(flat, 255);
+  masks.push(Uint8Array.from(flat, v => v > tFlat ? 1 : 0));
+  for (const p of [0.3, 0.45, 0.6]){
+    const t = percentile(flat, p); masks.push(Uint8Array.from(flat, v => v > t ? 1 : 0));
+  }
+  for (const p of [0.7, 0.82, 0.9]){                       // vùng được bao kín bởi đường mép
+    const tE = percentile(mag, p), E = new Uint8Array(n);
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++){
+      if (mag[y*w + x] <= tE) continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) E[(y+dy)*w + x + dx] = 1;
+    }
+    const bg = new Uint8Array(n), stack = new Int32Array(n); let sp = 0;
+    const seed = i => { if (!E[i] && !bg[i]){ bg[i] = 1; stack[sp++] = i; } };
+    for (let x = 0; x < w; x++){ seed(x); seed((h-1)*w + x); }
+    for (let y = 0; y < h; y++){ seed(y*w); seed(y*w + w - 1); }
+    while (sp){
+      const q = stack[--sp], x = q % w;
+      if (x > 0) seed(q - 1); if (x < w - 1) seed(q + 1); if (q >= w) seed(q - w); if (q < n - w) seed(q + w);
+    }
+    masks.push(Uint8Array.from(bg, v => v ? 0 : 1));
+  }
+  let best = null, bestScore = 0;
+  for (const m of masks){
+    const comp = largestComponent(m, w, h);
+    if (!comp || comp.area < n * 0.08) continue;
+    const quad = maxAreaQuad(simplifyHull(convexHull(comp.pts), 36));
+    if (!quad) continue;
+    const q = orderQuad(quad), frac = polyArea(q) / n;
+    if (frac < 0.1 || !isConvex(q)) continue;
+    // tứ giác phải ôm sát vùng (không phải hình méo) và gần như phủ cả ảnh thì kém tin cậy
+    const fill = comp.area / polyArea(q);
+    if (fill < 0.85) continue;
+    const full = q.every(([x, y]) => (x < 3 || x > w - 3) && (y < 3 || y > h - 3));
+    const score = edgeScore(q, mag, w, h) / maxMag * Math.sqrt(frac) * (full ? 0.3 : 1) * Math.min(1, fill / 0.95);
+    if (score > bestScore){ bestScore = score; best = q; }
+  }
+  if (!best) return defaultCorners(W, H);
+  // tinh chỉnh ở độ phân giải cao hơn
+  const M = grayOf(mid, mid.width + mid.height);
+  M.g = boxBlur(M.g, M.w, M.h, 1);
+  const k = 1 / S.s;
+  const coarse = refineQuad(best.map(([x, y]) => [x * k, y * k]), M, 0.04);
+  const refined = refineQuad(coarse, M, 0.008);
+  return refined.map(([x, y]) => [Math.max(0, Math.min(W, x / k0)), Math.max(0, Math.min(H, y / k0))]);
+}
+
+/* ---------- nắn phối cảnh ---------- */
+function homography(from, to){
+  const A = [];
+  for (let i = 0; i < 4; i++){
+    const [x, y] = from[i], [X, Y] = to[i];
+    A.push([x, y, 1, 0, 0, 0, -x*X, -y*X, X]);
+    A.push([0, 0, 0, x, y, 1, -x*Y, -y*Y, Y]);
+  }
+  for (let c = 0; c < 8; c++){
+    let piv = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+    [A[c], A[piv]] = [A[piv], A[c]];
+    for (let r = 0; r < 8; r++){ if (r === c) continue; const f = A[r][c] / A[c][c]; for (let k = c; k < 9; k++) A[r][k] -= f * A[c][k]; }
+  }
+  return A.map((row, i) => row[8] / row[i]).concat(1);
+}
+function warp(src, corners){
+  const [tl, tr, br, bl] = corners;
+  let w = Math.max(dist(tl, tr), dist(bl, br)), h = Math.max(dist(tl, bl), dist(tr, br));
+  // gần đúng tỉ lệ khổ A (A4, A5…) thì nắn về đúng tỉ lệ √2 cho trang vuông vắn
+  const R2 = Math.SQRT2, ratio = Math.max(w, h) / Math.min(w, h);
+  if (Math.abs(ratio - R2) / R2 < 0.09){ if (h >= w) h = w * R2; else w = h * R2; }
+  const k = Math.min(1, MAX_OUT / Math.max(w, h)); w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
+  // cắt lẹm vào 0,4% để mép trang sắc, không dính viền nền
+  const mx = w * 0.004, my = h * 0.004;
+  const Hm = homography([[-mx,-my],[w+mx,-my],[w+mx,h+my],[-mx,h+my]], corners);
+  const SW = src.width, SH = src.height;
+  const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, SW, SH).data;
+  const out = mkCanvas(w, h), octx = out.getContext('2d', { willReadFrequently: true }), od = octx.createImageData(w, h), o = od.data;
+  let p = 0;
+  for (let y = 0; y < h; y++){
+    const yc = y + 0.5;
+    for (let x = 0; x < w; x++, p += 4){
+      const xc = x + 0.5, den = Hm[6]*xc + Hm[7]*yc + 1;
+      let sx = (Hm[0]*xc + Hm[1]*yc + Hm[2]) / den - 0.5, sy = (Hm[3]*xc + Hm[4]*yc + Hm[5]) / den - 0.5;
+      if (sx < 0) sx = 0; else if (sx > SW - 1.001) sx = SW - 1.001;
+      if (sy < 0) sy = 0; else if (sy > SH - 1.001) sy = SH - 1.001;
+      const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+      const i00 = (y0*SW + x0) * 4, i10 = i00 + 4, i01 = i00 + SW*4, i11 = i01 + 4;
+      for (let c = 0; c < 3; c++){
+        const top = sd[i00+c] + (sd[i10+c] - sd[i00+c]) * fx, bot = sd[i01+c] + (sd[i11+c] - sd[i01+c]) * fx;
+        o[p+c] = top + (bot - top) * fy;
+      }
+      o[p+3] = 255;
+    }
+  }
+  octx.putImageData(od, 0, 0); return out;
+}
+
+/* ---------- bộ lọc ---------- */
+function backgroundMap(c){
+  // ước lượng độ sáng nền giấy: lấy giá trị sáng nhất từng ô, nở rộng, làm mờ rồi phóng lại
+  const w = c.width, h = c.height, B = Math.max(8, Math.round(Math.max(w, h) / 48));
+  const bw = Math.ceil(w / B), bh = Math.ceil(h / B);
+  const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  let m = new Float32Array(bw * bh * 3);
+  for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++){
+    let r = 0, g = 0, b = 0;
+    for (let y = by*B; y < Math.min(h, by*B + B); y += 2) for (let x = bx*B; x < Math.min(w, bx*B + B); x += 2){
+      const i = (y*w + x) * 4; if (d[i] > r) r = d[i]; if (d[i+1] > g) g = d[i+1]; if (d[i+2] > b) b = d[i+2];
+    }
+    const j = (by*bw + bx) * 3; m[j] = r; m[j+1] = g; m[j+2] = b;
+  }
+  const pass = (fn) => { const o = new Float32Array(m.length);
+    for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) for (let ch = 0; ch < 3; ch++){
+      const vals = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+        const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < bh && xx >= 0 && xx < bw) vals.push(m[(yy*bw + xx)*3 + ch]);
+      }
+      o[(y*bw + x)*3 + ch] = fn(vals);
+    }
+    m = o; };
+  pass(v => Math.max(...v));
+  pass(v => v.reduce((a, b) => a + b, 0) / v.length);
+  const sc = mkCanvas(bw, bh), sctx = sc.getContext('2d'), sid = sctx.createImageData(bw, bh);
+  for (let i = 0; i < bw * bh; i++){ sid.data[i*4] = m[i*3]; sid.data[i*4+1] = m[i*3+1]; sid.data[i*4+2] = m[i*3+2]; sid.data[i*4+3] = 255; }
+  sctx.putImageData(sid, 0, 0);
+  const big = mkCanvas(w, h), bctx = big.getContext('2d', { willReadFrequently: true });
+  bctx.imageSmoothingEnabled = true; bctx.imageSmoothingQuality = 'high';
+  bctx.drawImage(sc, 0, 0, bw * B, bh * B);
+  return bctx.getImageData(0, 0, w, h).data;
+}
+function sharpen(d, w, h, k){
+  const s = new Uint8ClampedArray(d), W4 = w * 4;
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++){
+    const i = y * W4 + x * 4;
+    for (let c = 0; c < 3; c++){ const j = i + c; d[j] = s[j] * (1 + 4*k) - k * (s[j-4] + s[j+4] + s[j-W4] + s[j+W4]); }
+  }
+}
+function applyFilter(warped, mode){
+  const w = warped.width, h = warped.height, out = mkCanvas(w, h), ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(warped, 0, 0);
+  if (mode === 'original') return out;
+  const img = ctx.getImageData(0, 0, w, h), d = img.data, bg = backgroundMap(warped);
+  const curve = v => { v = (v - 45) * 255 / 190; return v < 0 ? 0 : v > 255 ? 255 : v; };
+  for (let i = 0; i < d.length; i += 4){
+    const r = Math.min(255, d[i] * 255 / Math.max(bg[i], 40));
+    const g = Math.min(255, d[i+1] * 255 / Math.max(bg[i+1], 40));
+    const b = Math.min(255, d[i+2] * 255 / Math.max(bg[i+2], 40));
+    if (mode === 'enhance'){ d[i] = curve(r); d[i+1] = curve(g); d[i+2] = curve(b); }
+    else {
+      const l = 0.299*r + 0.587*g + 0.114*b;
+      const v = mode === 'bw' ? (l < 175 ? 0 : 255) : curve(l);
+      d[i] = d[i+1] = d[i+2] = v;
+    }
+  }
+  if (mode !== 'bw') sharpen(d, w, h, 0.3);
+  ctx.putImageData(img, 0, 0); return out;
+}
+function rotateCanvas(c){
+  const r = mkCanvas(c.height, c.width), ctx = r.getContext('2d', { willReadFrequently: true });
+  ctx.translate(c.height, 0); ctx.rotate(Math.PI / 2); ctx.drawImage(c, 0, 0); return r;
+}
+
+/* ---------- lưu trang ---------- */
+async function finalizePage(page, src, corners, warped, filter){
+  const out = applyFilter(warped, filter);
+  const k = 320 / Math.max(out.width, out.height), th = mkCanvas(Math.round(out.width * k), Math.round(out.height * k));
+  const tctx = th.getContext('2d'); tctx.imageSmoothingQuality = 'high'; tctx.drawImage(out, 0, 0, th.width, th.height);
+  const [srcBlob, outBlob, thumbBlob] = await Promise.all([toBlob(src, 'image/jpeg', 0.92), toBlob(out, 'image/jpeg', 0.88), toBlob(th, 'image/jpeg', 0.8)]);
+  if (page.thumbURL) URL.revokeObjectURL(page.thumbURL);
+  Object.assign(page, { srcBlob, outBlob, thumbBlob, corners, filter, outW: out.width, outH: out.height, thumbURL: URL.createObjectURL(thumbBlob) });
+  return page;
+}
+
+async function addFiles(files, doc){
+  files = [...files].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  if (!doc || !docs.includes(doc)) doc = docs[docs.length - 1];
+  if (files.length === 1){
+    try { const src = await fileToCanvas(files[0]); openEditor(doc, { id: nextId++ }, src, true); }
+    catch { toast('Không đọc được ảnh này'); }
+    return;
+  }
+  for (let i = 0; i < files.length; i++){
+    toast(`Đang xử lý ảnh ${i + 1}/${files.length}…`, 0); await nextFrame();
+    try {
+      const src = await fileToCanvas(files[i]), corners = detectCorners(src);
+      doc.pages.push(await finalizePage({ id: nextId++ }, src, corners, warp(src, corners), 'enhance'));
+      render();
+    } catch { toast(`Không đọc được ảnh ${files[i].name}`); }
+  }
+  toast(`Đã thêm ${files.length} trang vào "${docLabel(doc)}". Bấm vào trang để chỉnh lại nếu cắt chưa đúng.`, 4000);
+}
+
+/* ---------- danh sách tài liệu ---------- */
+function newDoc(name = ''){ const d = { id: nextId++, name, pages: [] }; docs.push(d); return d; }
+function pickInto(doc, camera){ targetDoc = doc; $(camera ? 'inCamera' : 'inFiles').click(); }
+
+function render(){
+  const wrap = $('docs'); wrap.innerHTML = '';
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:16px';
+  docs.forEach((d, di) => {
+    const el = document.createElement('section'); el.className = 'doc';
+    el.innerHTML = `<div class="doc-hd"><span class="num">${di + 1}</span>
+        <input type="text" list="docNames" aria-label="Tên tài liệu" placeholder="Đặt tên, VD: Thông báo tổn thất">
+        <span class="meta">${d.pages.length} trang</span>
+        <button class="small danger">Xóa tài liệu</button></div>
+      <div class="grid"></div>
+      <div class="doc-ft" ${d.pages.length ? '' : 'hidden'}><button class="small pri">Tải PDF</button><button class="small">Tải ảnh JPG</button><button class="small">Đọc chữ (OCR)</button></div>`;
+    const name = el.querySelector('input'); name.id = 'docname-' + d.id; name.value = d.name;
+    name.oninput = () => { d.name = name.value; persist(); };
+    el.querySelector('.doc-hd button').onclick = async () => {
+      if (d.pages.length && !await ask(`Xóa tài liệu "${docLabel(d)}" cùng ${d.pages.length} trang?`)) return;
+      d.pages.forEach(p => URL.revokeObjectURL(p.thumbURL));
+      docs.splice(docs.indexOf(d), 1); if (!docs.length) newDoc(); render();
+    };
+    const [bPdf, bJpg, bOcr] = el.querySelectorAll('.doc-ft button');
+    bPdf.onclick = e => withBusy(e.target, 'Đang tạo PDF…', async () => await download(await buildPdf(d.pages), fileBase(d) + '.pdf'));
+    bJpg.onclick = e => withBusy(e.target, 'Đang tải…', async () => {
+      for (let i = 0; i < d.pages.length; i++){
+        await download(d.pages[i].outBlob, `${fileBase(d)}-${i + 1}.jpg`);
+        if (!inClaude) await new Promise(r => setTimeout(r, 300));
+      }
+    });
+    bOcr.onclick = e => withBusy(e.target, 'Đang nhận dạng…', () => runOcr(d));
+
+    const grid = el.querySelector('.grid');
+    d.pages.forEach((p, i) => {
+      const c = document.createElement('div'); c.className = 'page';
+      c.innerHTML = `<div class="thumb" title="Bấm để sửa"><img alt="Trang ${i + 1}"></div>
+        <div class="bar"><span title="Trang ${i + 1}">${i + 1}</span>
+        <button title="Lên trước" ${i === 0 ? 'disabled' : ''}>◀</button>
+        <button title="Ra sau" ${i === d.pages.length - 1 ? 'disabled' : ''}>▶</button>
+        <button class="danger" title="Xóa trang">✕</button></div>`;
+      c.querySelector('img').src = p.thumbURL;
+      const [up, down, del] = c.querySelectorAll('button');
+      c.querySelector('.thumb').onclick = async () => openEditor(d, p, await blobToCanvas(p.srcBlob), false);
+      up.onclick = () => { [d.pages[i-1], d.pages[i]] = [d.pages[i], d.pages[i-1]]; render(); };
+      down.onclick = () => { [d.pages[i+1], d.pages[i]] = [d.pages[i], d.pages[i+1]]; render(); };
+      del.onclick = async () => { if (!await ask(`Xóa trang ${i + 1} của "${docLabel(d)}"?`)) return; URL.revokeObjectURL(p.thumbURL); d.pages.splice(i, 1); render(); };
+      if (docs.length > 1){
+        const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Chuyển trang sang tài liệu khác');
+        sel.innerHTML = '<option value="">Chuyển sang…</option>' + docs.filter(o => o !== d).map(o => `<option value="${o.id}"></option>`).join('');
+        [...sel.options].slice(1).forEach(op => op.textContent = docLabel(docs.find(o => o.id == op.value)));
+        sel.onchange = () => { const to = docs.find(o => o.id == sel.value); if (!to) return; d.pages.splice(i, 1); to.pages.push(p); render(); toast(`Đã chuyển sang "${docLabel(to)}"`); };
+        c.querySelector('.bar').appendChild(sel);
+      }
+      grid.appendChild(c);
+    });
+    const add = document.createElement('div'); add.className = 'add-pair';
+    add.innerHTML = `<button class="add-tile"><span class="ic">📷</span>Chụp</button><button class="add-tile"><span class="ic">🖼️</span>Chọn ảnh</button>`;
+    const [bCam, bPick] = add.querySelectorAll('button');
+    bCam.onclick = () => pickInto(d, true); bPick.onclick = () => pickInto(d, false);
+    grid.appendChild(add);
+    wrap.appendChild(el);
+  });
+  const total = docs.reduce((s, d) => s + d.pages.length, 0), filled = docs.filter(d => d.pages.length).length;
+  $('count').textContent = total ? `${docs.length} tài liệu · ${total} trang` : '';
+  $('export').hidden = !total;
+  $('exportInfo').textContent = `${filled} tài liệu có trang · ${total} trang`;
+  persist();
+}
+
+/* ---------- trình chỉnh sửa ---------- */
+let ed = null;
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){ const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+function releaseEd(e){ if (!e) return; if (e.imgURL) URL.revokeObjectURL(e.imgURL); if (e.prevURL) URL.revokeObjectURL(e.prevURL); }
+
+async function openEditor(doc, page, src, isNew){
+  releaseEd(ed);
+  ed = { doc, page, isNew, src, corners: isNew ? detectCorners(src) : page.corners.map(p => p.slice()), filter: page.filter || 'enhance', warped: null };
+  $('editor').classList.add('open');
+  await showCrop();
+}
+function closeEditor(){
+  releaseEd(ed); ed = null;
+  $('editor').classList.remove('open'); $('edStage').innerHTML = ''; $('edTools').innerHTML = '';
+}
+function tools(list){
+  const t = $('edTools'); t.innerHTML = '';
+  for (const [label, fn, cls] of list){ const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; t.appendChild(b); }
+  return t;
+}
+function rotateEd(){
+  const Hh = ed.src.height, c = ed.corners.map(([x, y]) => [Hh - y, x]);
+  ed.src = rotateCanvas(ed.src); ed.corners = [c[3], c[0], c[1], c[2]];
+}
+
+async function showCrop(){
+  const me = ed;
+  $('edTitle').textContent = `${docLabel(me.doc)} · kéo 4 góc khớp mép giấy`;
+  if (me.imgURL) URL.revokeObjectURL(me.imgURL);
+  me.imgURL = URL.createObjectURL(await toBlob(me.src, 'image/jpeg', 0.85));
+  if (ed !== me) return;
+  const W = me.src.width, H = me.src.height, r = Math.max(W, H) * 0.02;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet' });
+  svg.appendChild(svgEl('image', { href: me.imgURL, x: 0, y: 0, width: W, height: H }));
+  const shade = svgEl('path', { fill: 'rgba(0,0,0,.5)', 'fill-rule': 'evenodd' });
+  const poly = svgEl('polygon', { fill: 'none', stroke: '#42a5f5', 'stroke-width': r * 0.22 });
+  svg.append(shade, poly);
+  const handles = me.corners.map((_, i) => {
+    const g = svgEl('g', {});
+    g.append(svgEl('circle', { r, fill: 'rgba(30,122,224,.3)', stroke: '#fff', 'stroke-width': r * 0.18 }),
+             svgEl('circle', { r: r * 2.6, fill: 'transparent', 'data-i': i, style: 'cursor:grab' }));
+    svg.appendChild(g); return g;
+  });
+  // kính lúp khi kéo góc
+  const LS = 130, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const loupe = mkCanvas(LS * dpr, LS * dpr); loupe.className = 'loupe'; loupe.hidden = true;
+  const lctx = loupe.getContext('2d');
+  const drawLoupe = (i) => {
+    const p = me.corners[i], R = Math.max(W, H) * 0.045, k = loupe.width / (2 * R);
+    lctx.fillStyle = '#000'; lctx.fillRect(0, 0, loupe.width, loupe.height);
+    lctx.drawImage(me.src, p[0] - R, p[1] - R, 2 * R, 2 * R, 0, 0, loupe.width, loupe.height);
+    lctx.strokeStyle = '#42a5f5'; lctx.lineWidth = 2 * dpr; lctx.beginPath();
+    me.corners.forEach((c, j) => { const x = (c[0] - p[0] + R) * k, y = (c[1] - p[1] + R) * k; j ? lctx.lineTo(x, y) : lctx.moveTo(x, y); });
+    lctx.closePath(); lctx.stroke();
+    const m = loupe.width / 2; lctx.strokeStyle = '#ff5252'; lctx.lineWidth = 1.5 * dpr;
+    lctx.beginPath(); lctx.moveTo(m - 12*dpr, m); lctx.lineTo(m + 12*dpr, m); lctx.moveTo(m, m - 12*dpr); lctx.lineTo(m, m + 12*dpr); lctx.stroke();
+    loupe.classList.toggle('right', p[0] < W * 0.45 && p[1] < H * 0.4);
+    loupe.hidden = false;
+  };
+  const draw = () => {
+    poly.setAttribute('points', me.corners.map(p => p.join(',')).join(' '));
+    shade.setAttribute('d', `M0 0H${W}V${H}H0Z M${me.corners.map(p => p.join(' ')).join(' L')}Z`);
+    handles.forEach((g, i) => g.setAttribute('transform', `translate(${me.corners[i][0]} ${me.corners[i][1]})`));
+  };
+  let active = -1, grab = [0, 0];
+  const pt = e => { const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse()); return [p.x, p.y]; };
+  const clamp = ([x, y]) => [Math.max(0, Math.min(W, x)), Math.max(0, Math.min(H, y))];
+  svg.addEventListener('pointerdown', e => {
+    const p = pt(e); let bd = Infinity; active = -1;
+    me.corners.forEach((c, k) => { const d = dist(c, p); if (d < bd){ bd = d; active = k; } });
+    if (bd > r * 7) active = -1;
+    if (active >= 0){
+      // giữ khoảng lệch giữa ngón tay và góc để ngón tay không che điểm cần chỉnh
+      grab = [me.corners[active][0] - p[0], me.corners[active][1] - p[1]];
+      svg.setPointerCapture(e.pointerId); drawLoupe(active); e.preventDefault();
+    }
+  });
+  svg.addEventListener('pointermove', e => {
+    if (active < 0) return;
+    const p = pt(e); me.corners[active] = clamp([p[0] + grab[0], p[1] + grab[1]]); draw(); drawLoupe(active);
+  });
+  const end = () => { active = -1; loupe.hidden = true; };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  const stage = $('edStage'); stage.innerHTML = ''; stage.append(svg, loupe); draw();
+
+  tools([
+    ['Tự nhận diện', () => { me.corners = detectCorners(me.src); draw(); }],
+    ['Cả ảnh', () => { me.corners = [[0,0],[W,0],[W,H],[0,H]]; draw(); }],
+    ['Xoay ↻', () => { rotateEd(); showCrop(); }],
+    ['Tiếp →', async () => { toast('Đang nắn trang…', 0); await nextFrame(); me.warped = warp(me.src, me.corners); hideToast(); showFilter(); }, 'pri'],
+  ]);
+}
+
+async function showFilter(){
+  const me = ed;
+  $('edTitle').textContent = `${docLabel(me.doc)} · chọn kiểu ảnh`;
+  const img = document.createElement('img'); img.className = 'preview'; img.alt = 'Xem trước trang';
+  const stage = $('edStage'); stage.innerHTML = ''; stage.appendChild(img);
+  const update = async () => {
+    await nextFrame();
+    const prev = applyFilter(me.warped, me.filter);
+    if (me.prevURL) URL.revokeObjectURL(me.prevURL);
+    me.prevURL = URL.createObjectURL(await toBlob(prev, 'image/jpeg', 0.85)); img.src = me.prevURL;
+    [...$('edTools').children].forEach(b => b.classList.toggle('on', b.dataset.f === me.filter));
+  };
+  const saveIt = async (again) => {
+    // mở camera ngay trong lúc bấm (trình duyệt chỉ cho mở khi người dùng vừa bấm), lưu chạy song song
+    if (again) pickInto(me.doc, true);
+    toast('Đang lưu…', 0); await nextFrame();
+    const page = await finalizePage(me.page, me.src, me.corners, me.warped, me.filter);
+    if (me.isNew) me.doc.pages.push(page);
+    if (ed === me) closeEditor();
+    render(); toast(`Đã lưu vào "${docLabel(me.doc)}" (${me.doc.pages.length} trang)`);
+  };
+  const list = [
+    ['← Cắt lại', showCrop],
+    ...FILTERS.map(([f, label]) => [label, () => { me.filter = f; update(); }]),
+    ['Xoay ↻', () => { rotateEd(); me.warped = rotateCanvas(me.warped); update(); }],
+  ];
+  if (me.isNew) list.push(['Lưu, chụp tiếp 📷', () => saveIt(true)]);
+  list.push([me.isNew ? 'Lưu trang ✓' : 'Lưu thay đổi ✓', () => saveIt(false), 'pri']);
+  const t = tools(list);
+  [...t.children].slice(1, 1 + FILTERS.length).forEach((b, i) => b.dataset.f = FILTERS[i][0]);
+  update();
+}
+
+/* ---------- xuất file ---------- */
+function defaultName(){
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  return `scan-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`;
+}
+const safeName = s => s.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim();
+function fileBase(d){ return safeName([$('caseName').value.trim(), docLabel(d)].filter(Boolean).join(' - ')) || defaultName(); }
+function loadScript(src){
+  return new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('Không tải được thư viện, kiểm tra kết nối mạng')); document.head.appendChild(s); });
+}
+async function download(blob, name){
+  if (inClaude){
+    const dl = await useCap('downloads');
+    if (!dl) throw new Error('Trang này chưa được phép tải file về máy');
+    try { await dl.save({ filename: name, data: blob }); }
+    catch (e) { if (e.code !== 'declined') throw new Error(e.message || 'Không tải được file'); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function buildPdf(pages){
+  if (!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const { jsPDF } = window.jspdf, a4 = $('paper').value === 'a4';
+  let doc;
+  for (const p of pages){
+    const land = p.outW > p.outH;
+    let pw, ph;
+    if (a4){ pw = land ? 297 : 210; ph = land ? 210 : 297; }
+    else { pw = land ? 297 : 210; ph = pw * p.outH / p.outW; }
+    const fmt = [pw, ph], ori = land ? 'l' : 'p';
+    if (!doc) doc = new jsPDF({ unit: 'mm', format: fmt, orientation: ori, compress: true });
+    else doc.addPage(fmt, ori);
+    let dw = pw, dh = pw * p.outH / p.outW;
+    if (dh > ph){ dh = ph; dw = ph * p.outW / p.outH; }
+    const bytes = new Uint8Array(await p.outBlob.arrayBuffer());
+    doc.addImage(bytes, 'JPEG', (pw - dw) / 2, (ph - dh) / 2, dw, dh, undefined, 'FAST');
+  }
+  return doc.output('blob');
+}
+async function withBusy(btn, label, fn){
+  const old = btn.textContent; btn.disabled = true; btn.textContent = label;
+  try { await fn(); } catch (e) { if (e.name !== 'AbortError') toast(e.message || 'Có lỗi xảy ra', 4000); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+function filledDocs(){ return docs.filter(d => d.pages.length); }
+
+$('btnZip').onclick = e => withBusy(e.target, 'Đang nén…', async () => {
+  if (!window.JSZip) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const zip = new JSZip(), used = new Set(), list = filledDocs();
+  for (let i = 0; i < list.length; i++){
+    toast(`Đang tạo PDF ${i + 1}/${list.length}: ${docLabel(list[i])}`, 0);
+    let name = fileBase(list[i]), n = 2; while (used.has(name)) name = `${fileBase(list[i])} (${n++})`; used.add(name);
+    zip.file(name + '.pdf', await buildPdf(list[i].pages));
+  }
+  hideToast();
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+  await download(blob, (safeName($('caseName').value) || defaultName()) + '.zip');
+});
+$('btnAllPdf').onclick = e => withBusy(e.target, 'Đang tạo PDF…', async () => {
+  for (const d of filledDocs()){
+    await download(await buildPdf(d.pages), fileBase(d) + '.pdf');
+    if (!inClaude) await new Promise(r => setTimeout(r, 400));
+  }
+});
+
+/* ---------- nhận dạng chữ ---------- */
+let ocrName = '';
+function showOcr(title, text){ hideToast(); $('ocrTitle').textContent = title; $('ocrText').value = text; $('ocrModal').classList.add('open'); }
+// OCR qua Claude (khi mở bằng link Claude): đọc chuẩn tiếng Việt hơn Tesseract
+async function ocrWithClaude(sample, pages){
+  const caps = await sample.limits().catch(() => null);
+  if (!caps || !caps.images) return null;
+  const parts = [];
+  for (let i = 0; i < pages.length; i++){
+    toast(`Claude đang đọc trang ${i + 1}/${pages.length}…`, 0);
+    try {
+      const { text } = await sample('Đây là ảnh scan một trang tài liệu (thường là tiếng Việt). Chép lại nguyên văn toàn bộ chữ trên trang, giữ đúng dấu tiếng Việt, xuống dòng và thứ tự đọc. Bảng thì trình bày mỗi hàng một dòng, các ô cách nhau bằng " | ". Chỉ trả về phần chữ, không giải thích gì thêm.', { images: pages[i].outBlob });
+      parts.push(text.trim());
+    } catch (e) {
+      if (e.code === 'not_granted'){ if (!parts.length) return null; break; }
+      throw new Error(`Không đọc được trang ${i + 1}: ${e.message || e.code}`);
+    }
+  }
+  return parts;
+}
+let ocrWorker = null;
+async function ocrWithTesseract(pages){
+  if (!window.Tesseract){ toast('Đang tải bộ nhận dạng chữ…', 0); await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'); }
+  let cur = 0;
+  if (!ocrWorker){
+    toast('Đang tải dữ liệu tiếng Việt (lần đầu hơi lâu)…', 0);
+    ocrWorker = await Tesseract.createWorker('vie+eng', 1, {
+      logger: m => { if (m.status === 'recognizing text') toast(`Đang đọc trang ${cur}/${pages.length}: ${Math.round(m.progress * 100)}%`, 0); }
+    });
+  }
+  const parts = [];
+  for (let i = 0; i < pages.length; i++){ cur = i + 1; const { data } = await ocrWorker.recognize(pages[i].outBlob); parts.push(data.text.trim()); }
+  return parts;
+}
+async function runOcr(d){
+  let parts;
+  if (inClaude){
+    const sample = await useCap('sample');
+    parts = sample ? await ocrWithClaude(sample, d.pages) : null;
+    if (!parts) throw new Error('Chức năng nhận dạng chữ chưa dùng được ở đây');
+  } else parts = await ocrWithTesseract(d.pages);
+  ocrName = fileBase(d);
+  showOcr(`Chữ trong "${docLabel(d)}"`, parts.length > 1 ? parts.map((t, i) => `----- Trang ${i + 1} -----\n${t}`).join('\n\n') : parts[0]);
+}
+$('ocrClose').onclick = () => $('ocrModal').classList.remove('open');
+$('ocrCopy').onclick = async () => { try { await navigator.clipboard.writeText($('ocrText').value); toast('Đã sao chép'); } catch { $('ocrText').select(); document.execCommand('copy'); toast('Đã sao chép'); } };
+$('ocrTxt').onclick = e => withBusy(e.target, 'Đang tải…', () => download(new Blob([$('ocrText').value], { type: 'text/plain;charset=utf-8' }), ocrName + '.txt'));
+
+/* ---------- sự kiện chung ---------- */
+$('inCamera').onchange = e => { addFiles(e.target.files, targetDoc); e.target.value = ''; };
+$('inFiles').onchange = e => { addFiles(e.target.files, targetDoc); e.target.value = ''; };
+$('edCancel').onclick = closeEditor;
+$('btnAddDoc').onclick = () => { const d = newDoc(); render(); const inp = $('docname-' + d.id); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); inp.focus(); };
+$('btnClear').onclick = async () => {
+  if (!await ask('Xóa hết tất cả tài liệu và trang đã scan?')) return;
+  docs.forEach(d => d.pages.forEach(p => URL.revokeObjectURL(p.thumbURL)));
+  docs.length = 0; $('caseName').value = ''; newDoc(); render();
+};
+$('caseName').oninput = persist;
+$('paper').onchange = persist;
+document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop-on'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop-on'); });
+document.addEventListener('drop', e => {
+  e.preventDefault(); document.body.classList.remove('drop-on');
+  const sec = e.target.closest && e.target.closest('.doc'), i = sec ? [...$('docs').children].indexOf(sec) : -1;
+  addFiles(e.dataTransfer.files, docs[i] || docs[docs.length - 1]);
+});
+document.addEventListener('paste', e => { const f = [...e.clipboardData.files]; if (f.length) addFiles(f, docs[docs.length - 1]); });
+window.addEventListener('beforeunload', e => { if (!store.db && docs.some(d => d.pages.length)){ e.preventDefault(); e.returnValue = ''; } });
+
+(async () => {
+  await store.open();
+  const st = await store.get('state');
+  if (st && Array.isArray(st.docs)){
+    for (const d of st.docs){
+      docs.push({ id: d.id, name: d.name || '', pages: d.pages.filter(p => p.outBlob && p.thumbBlob).map(p => ({ ...p, thumbURL: URL.createObjectURL(p.thumbBlob) })) });
+      nextId = Math.max(nextId, d.id + 1, ...d.pages.map(p => p.id + 1));
+    }
+    $('caseName').value = st.caseName || '';
+    if (st.paper) $('paper').value = st.paper;
+  }
+  if (!docs.length) newDoc();
+  render();
+})();
+</script>
+</body>
+</html>
