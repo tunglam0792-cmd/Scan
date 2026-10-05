@@ -9,6 +9,7 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#1d2127;--soft:#191c21;--thumb:#262b33;--text:#e8eaee;--muted:#9aa1ad;--line:#323843;--pri:#3d8bdb;--pri-d:#2f78c4;--pri-soft:#1c2a3b;--danger:#ef6b6b;--shade:rgba(0,0,0,.6);color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#14171c;--card:#1d2127;--soft:#191c21;--thumb:#262b33;--text:#e8eaee;--muted:#9aa1ad;--line:#323843;--pri:#3d8bdb;--pri-d:#2f78c4;--pri-soft:#1c2a3b;--danger:#ef6b6b;--shade:rgba(0,0,0,.6);color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
 button,select,input{font:inherit}
@@ -28,7 +29,9 @@ header .count{margin-left:auto;font-size:13px;opacity:.9}
 main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
 .case{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .case label{font-weight:600}
-.case input{flex:1 1 220px;min-width:0}
+.case input[type=text]{flex:1 1 220px;min-width:0}
+.case .opt{font-weight:400;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-basis:100%}
+.case .opt input{width:18px;height:18px;margin:0}
 .doc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px}
 .doc-hd{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .doc-hd .num{width:28px;height:28px;border-radius:50%;background:var(--pri-soft);color:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none}
@@ -52,6 +55,8 @@ main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:col
 .add-doc:hover{border-color:var(--pri);background:var(--pri-soft)}
 .export{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .export b{margin-right:auto}
+.warn{background:#fff4d6;color:#5c4400;border:1px solid #f0d27a;border-radius:12px;padding:12px 14px;line-height:1.5;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.warn .open-chrome{background:#1a73e8;color:#fff;text-decoration:none;font-weight:600;padding:8px 14px;border-radius:8px}
 .hint{color:var(--muted);font-size:13px;line-height:1.5}
 
 /* Trình chỉnh sửa */
@@ -88,9 +93,15 @@ main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:col
 </header>
 
 <main>
+  <div class="warn" id="inappWarn" hidden>
+    <div><b>Trang đang mở trong trình duyệt của <span id="inappName">Zalo</span></b>, ở đây không gửi hoặc tải file được.
+    Bấm nút <b>⋯</b> (hoặc <b>⋮</b>) ở góc trên rồi chọn <b>"Mở bằng trình duyệt"</b> (Chrome hoặc Safari).</div>
+    <a class="open-chrome" id="openChrome" hidden>Mở bằng Chrome</a>
+  </div>
   <div class="case">
     <label for="caseName">Tên hồ sơ</label>
     <input type="text" id="caseName" placeholder="VD: biển số xe 30A-123.45 (dùng để đặt tên file)">
+    <label class="opt"><input type="checkbox" id="autoCrop"> Tự cắt mép giấy khi thêm ảnh (mặc định giữ toàn bộ ảnh)</label>
   </div>
 
   <div id="docs"></div>
@@ -199,16 +210,32 @@ const canShareFiles = !inClaude && !!navigator.canShare && (() => {
 })();
 async function shareFiles(files){
   const go = () => navigator.share({ files });
+  // điện thoại không cho gửi trực tiếp thì tải file về để gửi tay
+  const fallback = async (e) => {
+    toast(`Điện thoại không cho gửi trực tiếp (${e.name}), đã chuyển sang tải file về máy.`, 6000);
+    for (const f of files){ await download(f, f.name); await new Promise(r => setTimeout(r, 400)); }
+  };
   try { await go(); }
   catch (e) {
     if (e.name === 'AbortError') return;          // người dùng đóng bảng chia sẻ
     // tạo file lâu quá thì trình duyệt không cho mở bảng chia sẻ nữa: hỏi lại để có lượt bấm mới
-    if (e.name !== 'NotAllowedError') throw new Error('Không gửi được: ' + (e.message || e.name));
+    if (e.name !== 'NotAllowedError') return fallback(e);
     const names = files.length > 1 ? `${files.length} file` : files[0].name;
     if (!await ask(`Đã tạo xong ${names}. Bấm "Gửi" rồi chọn Zalo.`, 'Gửi')) return;
-    try { await go(); } catch (e2) { if (e2.name !== 'AbortError') throw new Error('Không gửi được: ' + (e2.message || e2.name)); }
+    try { await go(); } catch (e2) { if (e2.name !== 'AbortError') return fallback(e2); }
   }
 }
+// nhận biết trình duyệt nhúng trong Zalo/Facebook/Messenger… (không hỗ trợ gửi/tải file)
+(() => {
+  const ua = navigator.userAgent;
+  const m = /Zalo/i.test(ua) ? 'Zalo' : /FBAN|FBAV|FB_IAB|Messenger/i.test(ua) ? 'Facebook' : /Instagram/i.test(ua) ? 'Instagram' : /Line\//.test(ua) ? 'LINE' : /TikTok|musical_ly|Bytedance/i.test(ua) ? 'TikTok' : '';
+  if (!m || inClaude) return;
+  $('inappName').textContent = m; $('inappWarn').hidden = false;
+  if (/Android/i.test(ua)){
+    const a = $('openChrome'); a.hidden = false;
+    a.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+  }
+})();
 const pdfFile = async d => new File([await buildPdf(d.pages)], fileBase(d) + '.pdf', { type: 'application/pdf' });
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const nextFrame = () => new Promise(r => setTimeout(r, 30));
@@ -239,7 +266,7 @@ let saveTimer;
 function persist(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => store.set('state', {
-    caseName: $('caseName').value, paper: $('paper').value,
+    caseName: $('caseName').value, paper: $('paper').value, autoCrop: $('autoCrop').checked,
     docs: docs.map(d => ({ id: d.id, name: d.name, pages: d.pages.map(({ thumbURL, ...p }) => p) }))
   }), 300);
 }
@@ -297,6 +324,9 @@ function percentile(arr, p){
 }
 
 /* ---------- tự nhận diện mép giấy ---------- */
+const fullCorners = (W, H) => [[0, 0], [W, 0], [W, H], [0, H]];
+// góc ban đầu khi thêm ảnh: mặc định cả ảnh, chỉ tự dò mép khi người dùng bật
+function startCorners(src){ return $('autoCrop').checked ? detectCorners(src) : fullCorners(src.width, src.height); }
 function defaultCorners(W, H){
   const mx = W * 0.06, my = H * 0.06;
   return [[mx, my], [W - mx, my], [W - mx, H - my], [mx, H - my]];
@@ -585,7 +615,9 @@ function warp(src, corners){
   let w = Math.max(dist(tl, tr), dist(bl, br)), h = Math.max(dist(tl, bl), dist(tr, br));
   // gần đúng tỉ lệ khổ A (A4, A5…) thì nắn về đúng tỉ lệ √2 cho trang vuông vắn
   const R2 = Math.SQRT2, ratio = Math.max(w, h) / Math.min(w, h);
-  if (Math.abs(ratio - R2) / R2 < 0.09){ if (h >= w) h = w * R2; else w = h * R2; }
+  // giữ nguyên cả ảnh thì không nắn tỉ lệ, tránh làm méo ảnh
+  const isFull = corners.every(([x, y]) => (x < 1 || x > src.width - 1) && (y < 1 || y > src.height - 1));
+  if (!isFull && Math.abs(ratio - R2) / R2 < 0.09){ if (h >= w) h = w * R2; else w = h * R2; }
   const k = Math.min(1, MAX_OUT / Math.max(w, h)); w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
   // cắt lẹm vào 0,4% để mép trang sắc, không dính viền nền
   const mx = w * 0.004, my = h * 0.004;
@@ -701,7 +733,7 @@ async function addFiles(files, doc){
   for (let i = 0; i < files.length; i++){
     toast(`Đang xử lý ảnh ${i + 1}/${files.length}…`, 0); await nextFrame();
     try {
-      const src = await fileToCanvas(files[i]), corners = detectCorners(src);
+      const src = await fileToCanvas(files[i]), corners = startCorners(src);
       doc.pages.push(await finalizePage({ id: nextId++ }, src, corners, warp(src, corners), 'enhance'));
       render();
     } catch { toast(`Không đọc được ảnh ${files[i].name}`); }
@@ -794,7 +826,7 @@ function releaseEd(e){ if (!e) return; if (e.imgURL) URL.revokeObjectURL(e.imgUR
 
 async function openEditor(doc, page, src, isNew){
   releaseEd(ed);
-  ed = { doc, page, isNew, src, corners: isNew ? detectCorners(src) : page.corners.map(p => p.slice()), filter: page.filter || 'enhance', warped: null };
+  ed = { doc, page, isNew, src, corners: isNew ? startCorners(src) : page.corners.map(p => p.slice()), filter: page.filter || 'enhance', warped: null };
   $('editor').classList.add('open');
   await showCrop();
 }
@@ -1055,6 +1087,7 @@ $('btnClear').onclick = async () => {
 };
 $('caseName').oninput = persist;
 $('paper').onchange = persist;
+$('autoCrop').onchange = persist;
 document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop-on'); });
 document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop-on'); });
 document.addEventListener('drop', e => {
@@ -1075,6 +1108,7 @@ window.addEventListener('beforeunload', e => { if (!store.db && docs.some(d => d
     }
     $('caseName').value = st.caseName || '';
     if (st.paper) $('paper').value = st.paper;
+    $('autoCrop').checked = !!st.autoCrop;
   }
   if (!docs.length) newDoc();
   render();
