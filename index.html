@@ -748,7 +748,7 @@ function render(){
         <input type="text" list="docNames" aria-label="Tên tài liệu" placeholder="Đặt tên, VD: Thông báo tổn thất">
         <span class="meta">${d.pages.length} trang</span>
         <button class="small danger">Xóa tài liệu</button>
-        <label class="doc-opt"><input type="checkbox" data-a="crop"> Tự cắt mép giấy cho ảnh thêm vào tài liệu này</label></div>
+        <label class="doc-opt"><input type="checkbox" data-a="crop"> Tự cắt mép giấy (bỏ phần nền bàn quanh tờ giấy)</label></div>
       <div class="grid"></div>
       <div class="doc-ft" ${d.pages.length ? '' : 'hidden'}>
         ${canShareFiles ? '<button class="small pri" data-a="spdf">Gửi PDF (Zalo…)</button><button class="small" data-a="sjpg">Gửi ảnh</button>' : ''}
@@ -756,7 +756,21 @@ function render(){
     const name = el.querySelector('input'); name.id = 'docname-' + d.id; name.value = d.name;
     name.oninput = () => { d.name = name.value; persist(); };
     const crop = el.querySelector('[data-a="crop"]'); crop.id = 'doccrop-' + d.id; crop.checked = !!d.autoCrop;
-    crop.onchange = () => { d.autoCrop = crop.checked; persist(); };
+    // tích/bỏ tích: làm lại ngay các trang đang có (tự cắt mép hoặc trả về cả ảnh), giữ kiểu ảnh của từng trang
+    crop.onchange = async () => {
+      d.autoCrop = crop.checked; persist();
+      if (!d.pages.length) return;
+      crop.disabled = true;
+      try {
+        for (let i = 0; i < d.pages.length; i++){
+          toast(`${d.autoCrop ? 'Đang tự cắt mép' : 'Đang trả về cả ảnh'}: trang ${i + 1}/${d.pages.length}…`, 0); await nextFrame();
+          const p = d.pages[i], src = await blobToCanvas(p.srcBlob), corners = startCorners(src, d);
+          await finalizePage(p, src, corners, warp(src, corners), p.filter || 'enhance');
+        }
+        toast(d.autoCrop ? `Đã tự cắt mép ${d.pages.length} trang. Trang nào cắt chưa đúng thì bấm vào ảnh để chỉnh tay.` : `Đã trả ${d.pages.length} trang về nguyên ảnh.`, 4000);
+      } catch { toast('Có lỗi khi xử lý lại ảnh, bạn thử lại nhé', 4000); }
+      render();
+    };
     el.querySelector('.doc-hd button').onclick = async () => {
       if (d.pages.length && !await ask(`Xóa tài liệu "${docLabel(d)}" cùng ${d.pages.length} trang?`)) return;
       d.pages.forEach(p => URL.revokeObjectURL(p.thumbURL));
