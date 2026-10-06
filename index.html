@@ -30,12 +30,12 @@ main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:col
 .case{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .case label{font-weight:600}
 .case input[type=text]{flex:1 1 220px;min-width:0}
-.case .opt{font-weight:400;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-basis:100%}
-.case .opt input{width:18px;height:18px;margin:0}
+.doc-opt{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-basis:100%;cursor:pointer}
+.doc-opt input{width:18px;height:18px;margin:0;flex:none}
 .doc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px}
 .doc-hd{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .doc-hd .num{width:28px;height:28px;border-radius:50%;background:var(--pri-soft);color:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none}
-.doc-hd input{flex:1 1 200px;min-width:0;font-weight:600}
+.doc-hd input[type=text]{flex:1 1 200px;min-width:0;font-weight:600}
 .doc-hd .meta{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
 .page{border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;background:var(--soft)}
@@ -100,9 +100,7 @@ main{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:col
   </div>
   <div class="case">
     <label for="caseName">Tên hồ sơ</label>
-    <input type="text" id="caseName" placeholder="VD: biển số xe 30A-123.45 (dùng để đặt tên file)">
-    <label class="opt"><input type="checkbox" id="autoCrop"> Tự cắt mép giấy khi thêm ảnh (mặc định giữ toàn bộ ảnh)</label>
-  </div>
+    <input type="text" id="caseName" placeholder="VD: biển số xe 30A-123.45 (dùng để đặt tên file)">  </div>
 
   <div id="docs"></div>
   <button class="add-doc" id="btnAddDoc">+ Thêm tài liệu khác</button>
@@ -266,8 +264,8 @@ let saveTimer;
 function persist(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => store.set('state', {
-    caseName: $('caseName').value, paper: $('paper').value, autoCrop: $('autoCrop').checked,
-    docs: docs.map(d => ({ id: d.id, name: d.name, pages: d.pages.map(({ thumbURL, ...p }) => p) }))
+    caseName: $('caseName').value, paper: $('paper').value,
+    docs: docs.map(d => ({ id: d.id, name: d.name, autoCrop: !!d.autoCrop, pages: d.pages.map(({ thumbURL, ...p }) => p) }))
   }), 300);
 }
 
@@ -325,8 +323,8 @@ function percentile(arr, p){
 
 /* ---------- tự nhận diện mép giấy ---------- */
 const fullCorners = (W, H) => [[0, 0], [W, 0], [W, H], [0, H]];
-// góc ban đầu khi thêm ảnh: mặc định cả ảnh, chỉ tự dò mép khi người dùng bật
-function startCorners(src){ return $('autoCrop').checked ? detectCorners(src) : fullCorners(src.width, src.height); }
+// góc ban đầu khi thêm ảnh: mặc định cả ảnh, chỉ tự dò mép khi tài liệu đó được bật "Tự cắt mép"
+function startCorners(src, doc){ return doc && doc.autoCrop ? detectCorners(src) : fullCorners(src.width, src.height); }
 function defaultCorners(W, H){
   const mx = W * 0.06, my = H * 0.06;
   return [[mx, my], [W - mx, my], [W - mx, H - my], [mx, H - my]];
@@ -725,24 +723,20 @@ async function addFiles(files, doc){
   files = [...files].filter(f => f.type.startsWith('image/'));
   if (!files.length) return;
   if (!doc || !docs.includes(doc)) doc = docs[docs.length - 1];
-  if (files.length === 1){
-    try { const src = await fileToCanvas(files[0]); openEditor(doc, { id: nextId++ }, src, true); }
-    catch { toast('Không đọc được ảnh này'); }
-    return;
-  }
+  // 1 ảnh hay nhiều ảnh đều thêm thẳng vào tài liệu, không mở màn hình chỉnh sửa
   for (let i = 0; i < files.length; i++){
     toast(`Đang xử lý ảnh ${i + 1}/${files.length}…`, 0); await nextFrame();
     try {
-      const src = await fileToCanvas(files[i]), corners = startCorners(src);
+      const src = await fileToCanvas(files[i]), corners = startCorners(src, doc);
       doc.pages.push(await finalizePage({ id: nextId++ }, src, corners, warp(src, corners), 'enhance'));
       render();
     } catch { toast(`Không đọc được ảnh ${files[i].name}`); }
   }
-  toast(`Đã thêm ${files.length} trang vào "${docLabel(doc)}". Bấm vào trang để chỉnh lại nếu cắt chưa đúng.`, 4000);
+  toast(`Đã thêm ${files.length} trang vào "${docLabel(doc)}". Bấm vào ảnh trang nếu cần cắt lại hoặc đổi kiểu ảnh.`, 4000);
 }
 
 /* ---------- danh sách tài liệu ---------- */
-function newDoc(name = ''){ const d = { id: nextId++, name, pages: [] }; docs.push(d); return d; }
+function newDoc(name = ''){ const d = { id: nextId++, name, autoCrop: false, pages: [] }; docs.push(d); return d; }
 function pickInto(doc, camera){ targetDoc = doc; $(camera ? 'inCamera' : 'inFiles').click(); }
 
 function render(){
@@ -753,13 +747,16 @@ function render(){
     el.innerHTML = `<div class="doc-hd"><span class="num">${di + 1}</span>
         <input type="text" list="docNames" aria-label="Tên tài liệu" placeholder="Đặt tên, VD: Thông báo tổn thất">
         <span class="meta">${d.pages.length} trang</span>
-        <button class="small danger">Xóa tài liệu</button></div>
+        <button class="small danger">Xóa tài liệu</button>
+        <label class="doc-opt"><input type="checkbox" data-a="crop"> Tự cắt mép giấy cho ảnh thêm vào tài liệu này</label></div>
       <div class="grid"></div>
       <div class="doc-ft" ${d.pages.length ? '' : 'hidden'}>
         ${canShareFiles ? '<button class="small pri" data-a="spdf">Gửi PDF (Zalo…)</button><button class="small" data-a="sjpg">Gửi ảnh</button>' : ''}
         <button class="small ${canShareFiles ? '' : 'pri'}" data-a="pdf">Tải PDF</button><button class="small" data-a="jpg">Tải ảnh JPG</button><button class="small" data-a="ocr">Đọc chữ (OCR)</button></div>`;
     const name = el.querySelector('input'); name.id = 'docname-' + d.id; name.value = d.name;
     name.oninput = () => { d.name = name.value; persist(); };
+    const crop = el.querySelector('[data-a="crop"]'); crop.id = 'doccrop-' + d.id; crop.checked = !!d.autoCrop;
+    crop.onchange = () => { d.autoCrop = crop.checked; persist(); };
     el.querySelector('.doc-hd button').onclick = async () => {
       if (d.pages.length && !await ask(`Xóa tài liệu "${docLabel(d)}" cùng ${d.pages.length} trang?`)) return;
       d.pages.forEach(p => URL.revokeObjectURL(p.thumbURL));
@@ -826,7 +823,7 @@ function releaseEd(e){ if (!e) return; if (e.imgURL) URL.revokeObjectURL(e.imgUR
 
 async function openEditor(doc, page, src, isNew){
   releaseEd(ed);
-  ed = { doc, page, isNew, src, corners: isNew ? startCorners(src) : page.corners.map(p => p.slice()), filter: page.filter || 'enhance', warped: null };
+  ed = { doc, page, isNew, src, corners: isNew ? startCorners(src, doc) : page.corners.map(p => p.slice()), filter: page.filter || 'enhance', warped: null };
   $('editor').classList.add('open');
   await showCrop();
 }
@@ -1087,7 +1084,6 @@ $('btnClear').onclick = async () => {
 };
 $('caseName').oninput = persist;
 $('paper').onchange = persist;
-$('autoCrop').onchange = persist;
 document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop-on'); });
 document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop-on'); });
 document.addEventListener('drop', e => {
@@ -1103,12 +1099,11 @@ window.addEventListener('beforeunload', e => { if (!store.db && docs.some(d => d
   const st = await store.get('state');
   if (st && Array.isArray(st.docs)){
     for (const d of st.docs){
-      docs.push({ id: d.id, name: d.name || '', pages: d.pages.filter(p => p.outBlob && p.thumbBlob).map(p => ({ ...p, thumbURL: URL.createObjectURL(p.thumbBlob) })) });
+      docs.push({ id: d.id, name: d.name || '', autoCrop: !!d.autoCrop, pages: d.pages.filter(p => p.outBlob && p.thumbBlob).map(p => ({ ...p, thumbURL: URL.createObjectURL(p.thumbBlob) })) });
       nextId = Math.max(nextId, d.id + 1, ...d.pages.map(p => p.id + 1));
     }
     $('caseName').value = st.caseName || '';
     if (st.paper) $('paper').value = st.paper;
-    $('autoCrop').checked = !!st.autoCrop;
   }
   if (!docs.length) newDoc();
   render();
